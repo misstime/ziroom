@@ -28,9 +28,6 @@ class CloseSpiderExtension(object):
         ext = cls(idle_number, crawler)
         crawler.signals.connect(ext.spider_closed, signal=signals.spider_closed)
         crawler.signals.connect(ext.spider_idle, signal=signals.spider_idle)
-        print(ext.idle_number)
-        print(ext.idle_list)
-        print(ext.idle_count)
         return ext
 
     def spider_closed(self, spider):
