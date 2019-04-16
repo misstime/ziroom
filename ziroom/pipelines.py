@@ -30,16 +30,20 @@ class MongoClient(object):
     
     def __init__(self):
         self.closed = False
+        mongo_uri = project_settings.get('MONGO_URI')
+        mongo_pool_size = project_settings.get('MONGO_POOL_SIZE', 1)
+        mongo_database = project_settings.get('MONGO_DATABASE')
+        mongo_username = project_settings.get('MONGO_USERNAME')
+        mongo_password = project_settings.get('MONGO_PASSWORD')
+        mongo_collection = project_settings.get('MONGO_COLLECTION')
         self.conn_pool = ConnectionPool(
-            project_settings['MONGO_URI'], 
-            pool_size=project_settings.get('MONGO_POOL_SIZE', 1)
+            mongo_uri, 
+            pool_size=mongo_pool_size
         )
-        self.db = self.conn_pool[project_settings['MONGO_DATABASE']]
-        self.db.authenticate(
-            project_settings['MONGO_USERNAME'], 
-            project_settings['MONGO_PASSWORD'], 
-        )
-        self.col = self.db[project_settings['MONGO_COLLECTION']]
+        self.db = self.conn_pool[mongo_database]
+        if mongo_username and mongo_password:
+            self.db.authenticate(mongo_username, mongo_password)
+        self.col = self.db[mongo_collection]
 
 mongo = MongoClient()
 
@@ -207,6 +211,13 @@ class PaymentAir(FilesPipeline):
     '''支付详情 && 空气质量'''
 
     logger = logging.getLogger(__name__ + '.' + 'PaymentAir')
+    img_str = None
+
+    def end_ocr(self, price_num):
+        if not isinstance(price_num, Failure):
+            self.price_num = price_num
+        else:
+            self.price_num = None
 
     def get_media_requests(self, item, info):
         if item.get('payment'):
@@ -231,7 +242,10 @@ class PaymentAir(FilesPipeline):
                 img_path = project_settings['FILES_STORE'].rstrip('/').rstrip('\\') \
                     + '/' + file_info['path']
                 item['payment']['png']['path'] = img_path
-                img_str = yield orc_img(img_path)
+                d = deferToThread(orc_img, img_path)
+                d.addBoth(self.end_ocr)
+                yield d
+                img_str = self.img_str
                 if img_str:
                     self.logger.info("识别图片：{} - {} {}".format(
                         img_str,
