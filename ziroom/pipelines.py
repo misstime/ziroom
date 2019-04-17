@@ -213,11 +213,11 @@ class PaymentAir(FilesPipeline):
     logger = logging.getLogger(__name__ + '.' + 'PaymentAir')
     img_str = None
 
-    def end_ocr(self, price_num):
-        if not isinstance(price_num, Failure):
-            self.price_num = price_num
+    def end_ocr(self, img_str):
+        if not isinstance(img_str, Failure):
+            self.img_str = img_str
         else:
-            self.price_num = None
+            self.img_str = None
 
     def get_media_requests(self, item, info):
         if item.get('payment'):
